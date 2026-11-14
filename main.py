@@ -37,7 +37,7 @@ GENERIC_SCALE = 0.8       # multiplies the realised-move offsets
 FLOOR_ABS = 0.00035       # floor sigma, price units per square-root minute
 FLOOR_RMS_K = 0.0         # adds FLOOR_RMS_K times the root mean square one-minute move to the floor sigma, in quadrature
 FLOOR_BETA = 0.5          # the floor grows like h ** FLOOR_BETA, anchored at h = 60
-FLOOR_R75 = 0.5           # the 25% and 75% floors are this share of the Gaussian ones (prices sit still most minutes)
+FLOOR_R75 = 0.6           # the 25% and 75% floors are this share of the Gaussian ones; a compromise between backtests on FAA history (0.75 best) and NVIDIA history (0.5 best)
 # A board is treated as one event of mutually exclusive outcomes only when it is broad and its prices sum to about 1.
 EXCLUSIVE_MIN_MARKETS = 10
 EXCLUSIVE_SUM_LO = 0.7
