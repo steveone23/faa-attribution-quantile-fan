@@ -3,7 +3,9 @@
 Boards of independent markets (the FAA outage attribution family) get a
 persistence median with a quantile fan that blends, in quadrature, the trailing
 realised-move fan of the same market with a random-walk floor, so a market whose
-midpoint has been stuck for hours still gets a sensible width. A broad board of
+midpoint has been stuck for hours still gets a sensible width. The floor's sigma
+follows the market's own 4-hour moves, capped above and below, so a market that
+has barely moved gets a lower floor than a busy one. A broad board of
 mutually exclusive outcomes (the NVIDIA practice board) keeps the earlier
 board-aware model, with its own fans for mature and young markets.
 
@@ -34,10 +36,14 @@ Z95 = 1.644854
 
 # Boards of independent markets: realised-move fan blended in quadrature with a random-walk floor.
 GENERIC_SCALE = 0.8       # multiplies the realised-move offsets
-FLOOR_ABS = 0.00035       # floor sigma, price units per square-root minute
+FLOOR_ABS = 0.00035       # ceiling of the floor sigma, price units per square-root minute (used as is when the history is too short to measure the market's own sigma)
 FLOOR_RMS_K = 0.0         # adds FLOOR_RMS_K times the root mean square one-minute move to the floor sigma, in quadrature
 FLOOR_BETA = 0.5          # the floor grows like h ** FLOOR_BETA, anchored at h = 60
 FLOOR_R75 = 0.6           # the 25% and 75% floors are this share of the Gaussian ones; a compromise between backtests on FAA history (0.75 best) and NVIDIA history (0.5 best)
+FLOOR_LO = 0.00015        # the floor sigma never goes below this
+FLOOR_OWN_K = 1.2         # the floor follows FLOOR_OWN_K times the market's own sigma, between FLOOR_LO and FLOOR_ABS
+FLOOR_OWN_H = 240         # the own sigma is read from the market's absolute moves over this many minutes
+MEAN_ABS_NORMAL = 0.798   # mean absolute value of a standard normal, turns a mean absolute move into a sigma
 # A board is treated as one event of mutually exclusive outcomes only when it is broad and its prices sum to about 1.
 EXCLUSIVE_MIN_MARKETS = 10
 EXCLUSIVE_SUM_LO = 0.7
@@ -240,6 +246,18 @@ def rms_step(u):
     return math.sqrt(sum(v * v for v in d) / len(d))
 
 
+def own_sigma(u):
+    """Random-walk sigma per square-root minute implied by the mean absolute FLOOR_OWN_H-minute move; None when too short."""
+    h = FLOOR_OWN_H
+    m = len(u)
+    if m <= h + 30:
+        return None
+    total = 0.0
+    for k in range(m - h):
+        total += abs(u[k + h] - u[k])
+    return (total / (m - h)) / (MEAN_ABS_NORMAL * math.sqrt(h))
+
+
 def generic_rows(p, horizon):
     """Persistence median; realised-move fan blended in quadrature with a random-walk floor."""
     x = p[-1]
@@ -247,7 +265,11 @@ def generic_rows(p, horizon):
     if len(u) < MIN_POINTS:
         return fallback_rows(x, horizon)
     m75, m95 = realised_offsets(u, horizon)
-    sf = math.sqrt(FLOOR_ABS ** 2 + (FLOOR_RMS_K * rms_step(u)) ** 2)
+    base = FLOOR_ABS
+    s = own_sigma(u)
+    if s is not None:
+        base = min(FLOOR_ABS, max(FLOOR_LO, FLOOR_OWN_K * s))
+    sf = math.sqrt(base ** 2 + (FLOOR_RMS_K * rms_step(u)) ** 2)
     o75 = []
     o95 = []
     for h in range(1, horizon + 1):

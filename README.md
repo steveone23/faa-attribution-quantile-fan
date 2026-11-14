@@ -17,7 +17,9 @@ The program first looks at the board as a whole.
   h-minute moves and EWMAs of absolute one-minute moves), scaled down a little
   and blended in quadrature with a random-walk floor that grows like the square
   root of the horizon. The floor keeps a sensible width for a market whose
-  midpoint has been stuck for hours. Upside offsets are added to the price;
+  midpoint has been stuck for hours. The floor's sigma follows the market's
+  own 4-hour moves, kept between a lower and an upper cap, so a market that
+  has barely moved gets a lower floor than a busy one. Upside offsets are added to the price;
   downside offsets are applied multiplicatively, so the lower quantiles never
   go below zero.
 - **A broad board of mutually exclusive outcomes (the NVIDIA practice).** A
